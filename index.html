@@ -1,4 +1,123 @@
----
-layout: home
-author_profile: true
----
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>간단 출퇴근 앱</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            cursor: pointer;
+        }
+        .info {
+            font-size: 1em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="current-time"></div>
+    <button id="work-button">출근</button>
+    <div id="work-time" class="info"></div>
+    <div id="overtime" class="info"></div>
+    <div id="recommendation" class="info"></div>
+
+    <script>
+        const currentTimeDiv = document.getElementById('current-time');
+        const workButton = document.getElementById('work-button');
+        const workTimeDiv = document.getElementById('work-time');
+        const overtimeDiv = document.getElementById('overtime');
+        const recommendationDiv = document.getElementById('recommendation');
+
+        let startTime = localStorage.getItem('startTime');
+
+        function formatTime(date) {
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
+        function updateClock() {
+            const now = new Date();
+            currentTimeDiv.textContent = `현재 시간: ${formatTime(now)}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function calculateWorkInfo() {
+            if (startTime) {
+                const start = new Date(startTime);
+                const now = new Date();
+                const diffMs = now.getTime() - start.getTime();
+                const diffHours = diffMs / (1000 * 60 * 60);
+
+                let breakTimeHours = Math.floor(diffHours / 4) * 0.5;
+                const netWorkHours = diffHours - breakTimeHours;
+
+                const netWorkMinutes = Math.floor(netWorkHours * 60);
+                const displayHours = Math.floor(netWorkMinutes / 60);
+                const displayMinutes = netWorkMinutes % 60;
+
+                workTimeDiv.textContent = `실질 근무 시간: ${displayHours}시간 ${displayMinutes}분`;
+
+                let overtimeHours = netWorkHours - 8;
+                if (overtimeHours > 0) {
+                    const roundedOvertimeMinutes = Math.ceil(overtimeHours * 60 / 10) * 10;
+                    const overtimeDisplayHours = Math.floor(roundedOvertimeMinutes / 60);
+                    const overtimeDisplayMinutes = roundedOvertimeMinutes % 60;
+                    overtimeDiv.textContent = `예상 야근 시간: ${overtimeDisplayHours}시간 ${overtimeDisplayMinutes}분`;
+                } else {
+                    overtimeDiv.textContent = `예상 야근 시간: -`;
+                }
+
+                const targetWorkMinutes = Math.ceil(netWorkHours * 60 / 10) * 10;
+                const neededMinutes = targetWorkMinutes - netWorkMinutes;
+
+                if (neededMinutes > 0) {
+                    recommendationDiv.textContent = `${neededMinutes}분 더 근무하면 좋습니다.`;
+                } else {
+                    recommendationDiv.textContent = `퇴근하셔도 좋습니다.`;
+                }
+
+            } else {
+                workTimeDiv.textContent = `아직 출근하지 않았습니다.`;
+                overtimeDiv.textContent = `-`;
+                recommendationDiv.textContent = `-`;
+            }
+        }
+
+        if (startTime) {
+            workButton.textContent = `출근 완료: ${formatTime(new Date(startTime))}`;
+            setInterval(calculateWorkInfo, 60000); // 1분마다 업데이트
+            calculateWorkInfo();
+        }
+
+        workButton.addEventListener('click', () => {
+            if (!startTime) {
+                startTime = new Date().toISOString();
+                localStorage.setItem('startTime', startTime);
+                workButton.textContent = `출근 완료: ${formatTime(new Date(startTime))}`;
+                setInterval(calculateWorkInfo, 60000); // 1분마다 업데이트
+                calculateWorkInfo();
+            }
+        });
+
+        // PWA Service Worker 등록 (선택 사항)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js');
+            });
+        }
+    </script>
+</body>
+</html>
